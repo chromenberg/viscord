@@ -9,6 +9,7 @@ pub enum GatewayIntentBits as u64 {
 	guild_integrations
 	guild_webhooks
 	guild_invites
+	guild_voice_states
 	guild_presences
 	guild_messages
 	guild_message_reactions

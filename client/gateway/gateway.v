@@ -7,6 +7,8 @@ import net.websocket
 import rest
 import json2
 import messages { SentPayload, Identify }
+import events
+import eventbus
 
 enum GatewayState {
 	connecting
@@ -16,7 +18,7 @@ enum GatewayState {
 
 //@[heap]
 pub struct Gateway {
-	eb      void // ? We could put the event bus here and all `on` calls from client are bound to this?
+	eb      &eventbus.EventBus[events.Events] = eventbus.new[events.Events]() // ? We could put the event bus here and all `on` calls from client are bound to this?
 	token   string
 	intents int
 mut:
@@ -56,15 +58,21 @@ fn (mut self Gateway) message_handler(mut _ websocket.Client, msg &websocket.Mes
 	println('New message with opcode: ${data.opcode}\nSeq: ${self.seq} | Event Name: ${data.name}')
 
 	if data.opcode == .hello {
-		hello_payload := data.data as messages.Hello
-		self.heart = Heartbeater.new(hello_payload.heartbeat_interval)
-		self.heart.start(self)
-		self.identify()
+		
 	}
 
-	// if data.opcode == .heartbeat_ack && self.state == .connecting {
-	// 	self.state
-	// }
+	match data.opcode {
+		.dispatch {
+			self.handle_dispatch(data)
+		}
+
+		.hello {
+			hello_payload := data.data as messages.Hello
+			self.heart = Heartbeater.new(hello_payload.heartbeat_interval)
+			self.heart.start(self)
+			self.identify()
+		}
+	}
 }
 
 fn (mut self Gateway) close_handler(mut _ websocket.Client, code int, message string) ! {
@@ -109,4 +117,15 @@ pub fn (mut self Gateway) connect() ! {
 
 pub fn (self &Gateway) send[T](payload SentPayload[T]) ! {
 	self.sock.write_string(payload.encode())
+}
+
+pub fn (self &Gateway) emit[T](name events.Events, data T) {
+	self.eb.publish(name, self, data)
+}
+
+pub fn (self &Gateway) handle_dispatch(data Payload) {
+	match data.name {
+		.message_create {}
+		.message_delete {}
+	}
 }
