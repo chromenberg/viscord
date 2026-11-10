@@ -28,7 +28,7 @@ pub enum CloseCodes {
 	not_authed
 	auth_failed
 	already_authed
-	invalid_seq
+	invalid_seq = 4007
 	rate_limited
 	timed_out
 	invalid_shard
