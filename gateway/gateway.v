@@ -52,8 +52,8 @@ fn (mut self Gateway) message_handler(mut _ websocket.Client, msg &websocket.Mes
 	str := msg.payload.bytestr()
 	data := Payload.new(str)
 
-	println('New message with opcode: ${data.opcode}\n Seq: ${data.seq} | Event Name (if present): ${data.name}')
-	self.seq = data.seq
+	if data.seq != 0 then {self.seq = data.seq}
+	println('New message with opcode: ${data.opcode}\nSeq: ${self.seq} | Event Name: ${data.name}')
 
 	if data.opcode == .hello {
 		hello_payload := data.data as messages.Hello
