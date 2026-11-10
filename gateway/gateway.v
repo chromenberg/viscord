@@ -1,9 +1,13 @@
 module gateway
 
+// TODO: This needs to be cleaned up and made more readable
+// TODO: Give handlers their own system, event checking needs to be more thought out
+
 import net.websocket
 import rest
 import json2
 import messages
+import events
 
 //@[heap]
 pub struct Gateway {
@@ -12,6 +16,7 @@ pub struct Gateway {
 mut:
 	sock websocket.Client
 	seq  int
+	heart Heartbeater 
 }
 
 pub struct GatewayURLReq {
@@ -36,17 +41,24 @@ pub fn Gateway.new(tok string) Gateway {
 // Temporary message handler.
 // TODO: Proper system to handle messages recieved and emit events to the event system
 fn (mut self Gateway) message_handler(mut _ websocket.Client, msg &websocket.Message) ! {
-		str := msg.payload.bytestr()
-		data := Payload.new(str)
+	str := msg.payload.bytestr()
+	data := Payload.new(str)
 
-		println('New message with opcode: \n${data.opcode}')
-		self.seq = data.seq
+	println('New message with opcode: \n${data.opcode}')
+	self.seq = data.seq
 
-		if data.opcode == .hello {
-			hello_payload := data.data as messages.Hello
-			mut heart := Heartbeater.new(self, hello_payload.heartbeat_interval)
-			heart.start()
-		}
+	if data.opcode == .hello {
+		hello_payload := data.data as messages.Hello
+		self.heart = Heartbeater.new(hello_payload.heartbeat_interval)
+		self.heart.start(self)
+	}
+}
+
+fn (mut self Gateway) close_handler(mut _ websocket.Client, code int, message string) ! {
+	println('Connection closed with code: ${code} | Reason: ${message}')
+	if code != 1000 || code != 1001 { // TODO: filter to only discord close codes
+		self.heart.cancel()
+	}
 }
 
 // Sends the identification payload to the gateway
@@ -61,6 +73,7 @@ pub fn (mut self Gateway) connect() ! {
 	self.sock = websocket.new_client(url)!
 	self.sock.connect()!
 	self.sock.on_message(self.message_handler)
+	self.sock.on_close(self.close_handler)
 	mut sock := &self.sock
 
 	// the program lingers here for the lifecycle of the connection
