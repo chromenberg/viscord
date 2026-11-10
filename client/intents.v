@@ -1,7 +1,7 @@
 module client
 
 @[flag]
-pub enum GatewayIntentBits {
+pub enum GatewayIntentBits as u64 {
 	guilds
 	guild_members
 	guild_moderation
@@ -22,4 +22,13 @@ pub enum GatewayIntentBits {
 	automod_execution
 	guild_message_polls
 	direct_message_polls
+}
+
+// `bits` is the value of every intent bit
+pub fn GatewayIntentBits.intents(bits []GatewayIntentBits) int {
+	mut result := 0
+	for bit in bits  {
+		result |= int(bit)
+	}
+	return result
 }

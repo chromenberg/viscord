@@ -1,16 +1,17 @@
 module gateway
 
 import rand { f64_in_range }
-import x.async
 import time { sleep }
 import context
+// TODO: This should be automatic, opcodes should have to be specified manually
 import messages as msg
+import events
 
 enum HeartbeatState {
 	running
 	paused
 	restart
-	stop
+	stopped
 }
 
 @[heap]
@@ -20,7 +21,7 @@ pub struct Heartbeater {
 	ctx      context.Context
 	cancel   context.CancelFn // Ignore compiler notice, this fn is always initialized
 	mut:
-		state chan HeartbeatState
+		state HeartbeatState = .running
 		beat_thread thread
 }
 
@@ -62,7 +63,6 @@ pub fn (mut h Heartbeater) start(gate &Gateway) {
 
 		h.sleep(true)
 		h.send_heartbeat(gate)
-
 		ch := ctx.done()
 
 		println("[Heartbeat] Passed first heartbeat, beating every ${h.interval / time.microsecond} seconds")
@@ -71,11 +71,13 @@ pub fn (mut h Heartbeater) start(gate &Gateway) {
 			select {
 				_ := <-ch {
 					println("[Heartbeat] Closing heartbeat thread in 5ms")
+					h.state = .stopped
 					sleep(5*time.millisecond)
+					
 					return
 				}
 				
-				h.interval*time.millisecond*100 {
+				h.interval*time.millisecond {
 					h.send_heartbeat(gate)
 				}
 			}
@@ -90,11 +92,11 @@ pub fn (mut h Heartbeater) stop() {
 }
 
 pub fn (mut h Heartbeater) send_heartbeat(gate &Gateway) {
-	payload := Payload{
+	payload := msg.SentPayload.new[msg.Heartbeat](
 		opcode: events.EventOps.heartbeat
-		data:   gate.seq
-	}
-	gate.send[Payload](payload) or {
+		data: gate.seq
+	)
+	gate.send[msg.Heartbeat](payload) or {
 		eprintln('Failed to send heartbeat')
 	}
 }

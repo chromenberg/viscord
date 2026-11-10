@@ -6,17 +6,24 @@ module gateway
 import net.websocket
 import rest
 import json2
-import messages
-import events
+import messages { SentPayload, Identify }
+
+enum GatewayState {
+	connecting
+	connected
+	ready
+}
 
 //@[heap]
 pub struct Gateway {
-	eb    void // ? We could put the event bus here and all `on` calls from client are bound to this?
-	token string
+	eb      void // ? We could put the event bus here and all `on` calls from client are bound to this?
+	token   string
+	intents int
 mut:
-	sock websocket.Client
-	seq  int
-	heart Heartbeater 
+	state GatewayState = .connecting
+	sock  websocket.Client
+	seq   int
+	heart Heartbeater
 }
 
 pub struct GatewayURLReq {
@@ -32,9 +39,10 @@ fn get_socket_url() ?string {
 	return data.url
 }
 
-pub fn Gateway.new(tok string) Gateway {
+pub fn Gateway.new(tok string, intents int) Gateway {
 	return Gateway{
-		token: tok
+		token:   tok
+		intents: intents
 	}
 }
 
@@ -44,25 +52,37 @@ fn (mut self Gateway) message_handler(mut _ websocket.Client, msg &websocket.Mes
 	str := msg.payload.bytestr()
 	data := Payload.new(str)
 
-	println('New message with opcode: \n${data.opcode}')
+	println('New message with opcode: ${data.opcode}\n Seq: ${data.seq} | Event Name (if present): ${data.name}')
 	self.seq = data.seq
 
 	if data.opcode == .hello {
 		hello_payload := data.data as messages.Hello
 		self.heart = Heartbeater.new(hello_payload.heartbeat_interval)
 		self.heart.start(self)
+		self.identify()
 	}
+
+	// if data.opcode == .heartbeat_ack && self.state == .connecting {
+	// 	self.state
+	// }
 }
 
 fn (mut self Gateway) close_handler(mut _ websocket.Client, code int, message string) ! {
 	println('Connection closed with code: ${code} | Reason: ${message}')
-	if code != 1000 || code != 1001 { // TODO: filter to only discord close codes
+	if self.heart.state == .running { // TODO: filter to only discord close codes
 		self.heart.cancel()
 	}
 }
 
 // Sends the identification payload to the gateway
 fn (mut self Gateway) identify() {
+	data := Identify.new(
+		token: self.token, 
+		intents: self.intents
+	)
+	self.send[Identify](data) or {
+		panic("Couldnt identify. TODO: Retry identify instead of crash")
+	}
 }
 
 pub fn (mut self Gateway) connect() ! {
@@ -79,7 +99,7 @@ pub fn (mut self Gateway) connect() ! {
 	// the program lingers here for the lifecycle of the connection
 	// other parts of the program are called from the event system
 	sock.listen()!
-	
+
 	// TODO: cleanup function that removes all structs when closed
 	// TODO: Cant do this with heartbeat because that references gateway
 	// TODO: and not the other way around
@@ -87,7 +107,6 @@ pub fn (mut self Gateway) connect() ! {
 	return
 }
 
-pub fn (self &Gateway) send[T](payload T) ! {
-	data := json2.encode[T](payload)
-	self.sock.write_string(data)
+pub fn (self &Gateway) send[T](payload SentPayload[T]) ! {
+	self.sock.write_string(payload.encode())
 }
