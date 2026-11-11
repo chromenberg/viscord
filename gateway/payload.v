@@ -4,7 +4,7 @@ import json2
 import events
 import messages as msg
 
-type AnyMessage = msg.Hello | msg.Heartbeat
+type AnyMessage = msg.Hello | msg.Heartbeat | msg.MessageCreate
 
 // | msg.Ready | msg.Reconnect | msg.InvalidSession | msg.Resumed | msg.GuildCreate | msg.GuildUpdate | msg.GuildDelete | msg.GuildBanAdd | msg.GuildBanRemove | msg.GuildEmojisUpdate | msg.GuildStickersUpdate | msg.GuildIntegrationsUpdate | msg.GuildMemberAdd | msg.GuildMemberRemove | msg.GuildMemberUpdate | msg.GuildMembersChunk | msg.GuildRoleCreate | msg.GuildRoleUpdate | msg.GuildRoleDelete | msg.ChannelCreate | msg.ChannelUpdate | msg.ChannelDelete | msg.ChannelPinsUpdate | msg.ThreadCreate | msg.ThreadUpdate | msg.ThreadDelete | msg.ThreadListSync | msg.ThreadMemberUpdate | msg.ThreadMembersUpdate | msg.MessageCreate | msg.MessageUpdate | msg.MessageDelete | msg.MessageDeleteBulk
 
@@ -25,12 +25,12 @@ mut:
 }
 
 @[omitempty]
-pub struct Payload {
+pub struct Payload[T] {
 pub:
 	opcode events.EventOps @[json: op]
 	seq    int    @[json: s]	
 pub mut:
-	data AnyMessage	@[json: d]
+	data T	@[json: d]
 	name events.Events @[json: t]
 }
 
@@ -54,31 +54,13 @@ pub fn (p RawPayload) decode[T]() T {
 	}
 }
 
-pub fn Payload.new(data string) Payload {
-	raw := RawPayload.new(data)
+pub fn Payload.new[T](raw RawPayload) Payload[T] {
 	mut payload := Payload{
 		opcode: raw.opcode
 		seq:    raw.seq
+		data:   raw.decode[T]()
 		name:   raw.name
 	}
 
-	payload.get_data(raw)
-
 	return payload
-}
-
-fn (mut p Payload) get_data_from_named(raw RawPayload) {
-	match raw.name {
-		.ready {
-			p.data = raw.decode[msg.Hello]()
-		}
-		else {}
-	}
-}
-
-fn (mut p Payload) get_data(raw RawPayload) {
-	match raw.opcode {
-		.dispatch { p.get_data_from_named(raw) }
-		.hello { p.data = raw.decode[msg.Hello]() }
-	}
 }

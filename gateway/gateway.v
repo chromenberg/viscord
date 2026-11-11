@@ -5,10 +5,9 @@ module gateway
 
 import net.websocket
 import rest
-import json2
+import handlers
 import messages { SentPayload, Identify }
-import events
-import eventbus
+import client {Client}
 
 enum GatewayState {
 	connecting
@@ -18,10 +17,10 @@ enum GatewayState {
 
 //@[heap]
 pub struct Gateway {
-	eb      &eventbus.EventBus[events.Events] = eventbus.new[events.Events]() // ? We could put the event bus here and all `on` calls from client are bound to this?
 	token   string
 	intents int
 mut:
+	c ?&Client
 	state GatewayState = .connecting
 	sock  websocket.Client
 	seq   int
@@ -52,27 +51,8 @@ pub fn Gateway.new(tok string, intents int) Gateway {
 // TODO: Proper system to handle messages recieved and emit events to the event system
 fn (mut self Gateway) message_handler(mut _ websocket.Client, msg &websocket.Message) ! {
 	str := msg.payload.bytestr()
-	data := Payload.new(str)
-
-	if data.seq != 0 {self.seq = data.seq}
-	println('New message with opcode: ${data.opcode}\nSeq: ${self.seq} | Event Name: ${data.name}')
-
-	if data.opcode == .hello {
-		
-	}
-
-	match data.opcode {
-		.dispatch {
-			self.handle_dispatch(data)
-		}
-
-		.hello {
-			hello_payload := data.data as messages.Hello
-			self.heart = Heartbeater.new(hello_payload.heartbeat_interval)
-			self.heart.start(self)
-			self.identify()
-		}
-	}
+	raw := RawPayload.new(str)
+	self.handle_dispatch(self.c or {panic("no client")}, raw)
 }
 
 fn (mut self Gateway) close_handler(mut _ websocket.Client, code int, message string) ! {
@@ -93,11 +73,11 @@ fn (mut self Gateway) identify() {
 	}
 }
 
-pub fn (mut self Gateway) connect() ! {
+pub fn (mut self Gateway) connect(c &Client) ! {
 	url := get_socket_url() or {
 		panic('No gateway URL was recieved')
 	}
-
+	self.c = c
 	self.sock = websocket.new_client(url)!
 	self.sock.connect()!
 	self.sock.on_message(self.message_handler)
@@ -119,13 +99,32 @@ pub fn (self &Gateway) send[T](payload SentPayload[T]) ! {
 	self.sock.write_string(payload.encode())
 }
 
-pub fn (self &Gateway) emit[T](name events.Events, data T) {
-	self.eb.publish(name, self, data)
-}
 
-pub fn (self &Gateway) handle_dispatch(data Payload) {
-	match data.name {
-		.message_create {}
-		.message_delete {}
+pub fn (mut self Gateway) handle_dispatch(c &Client, raw RawPayload) {
+	match raw.opcode {
+		.hello {
+			data := Payload.new[messages.Hello](raw)
+			hello_payload := data.data
+
+			self.heart = Heartbeater.new(hello_payload.heartbeat_interval)
+			self.heart.start(self)
+			self.identify()
+		}
+
+		.dispatch {
+			match raw.name {
+				.ready {
+					data := Payload.new[messages.Ready](raw)
+					handlers.ready(c, data)
+				}
+				.message_create {
+					data := Payload.new[messages.MessageCreate](raw)
+					if data.seq != 0 {self.seq = data.seq}
+					
+					handlers.message_create(c, data)
+				}
+				.message_delete {}
+			}
+		}
 	}
 }

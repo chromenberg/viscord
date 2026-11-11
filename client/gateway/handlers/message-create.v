@@ -1,7 +1,0 @@
-module handlers
-
-
-struct MessageCreate {
-
-}
-
