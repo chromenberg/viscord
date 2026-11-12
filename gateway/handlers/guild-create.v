@@ -11,7 +11,7 @@ pub fn guild_create(c &Client, p Payload[msg.GuildCreate])  {
 	$for field in types.Guild.fields {
 		guild.$(field.name) = &p.data.$(field.name)
 	}
-	c.cache.guilds.set(p.data.id, guild)
+	// c.cache.guilds.set(p.data.id, guild)
 	c.emit(.guild_create, &guild) 
 	// The assembled guild object should have additional data like its channels
 }

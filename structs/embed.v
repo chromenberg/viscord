@@ -44,13 +44,36 @@ pub mut:
 
 pub struct Embed {
 	title       ?string
-	type        ?EmbedType
+	typ         ?EmbedType @[json: type]
 	description ?string
 	url         ?string
 	timestamp   ?string
 	color       ?int
 }
 
-pub type EmbedType
+pub enum EmbedType {
+	rich
+	image
+	video
+	gifv
+	article
+	link
+	poll_result
+	components
+}
 
-'rich' | 'image' | 'video' | 'gifv' | 'article' | 'link' | 'poll_result' | 'components'
+/*
+When serializing an embedthis is what it should become
+
+Embed:
+{
+	"title": "Hello, Embed!",
+	"description": "This is an embedded message.",
+	"thumbnail": {
+		"url": "attachment://myfilename.png"
+	},
+	"image": {
+		"url": "attachment://mygif.gif"
+	}
+}
+*/

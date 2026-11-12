@@ -1,9 +1,12 @@
 module structs
 
+import client {Client}
+
 pub struct APIMessage {
 pub:
 	id         Snowflake
 	channel_id Snowflake
+	guild_id   Snowflake
 
 	author  User
 	content string
@@ -16,31 +19,22 @@ pub:
 	mention_everyone bool
 	mentions         []User
 	mention_roles    []Role
+
+	member Member
+	channel_type ?int
+	
+	message_reference  ?MessageReference
+	referenced_message ?&APIMessage
 }
 
-pub struct Message {
-pub:
-	id      Snowflake
-	channel Channel
-
-	author  User
-	content string
-
-	timestamp string
-	edited_at ?string @[json: edited_timestamp]
-
-	tts bool
-
-	mention_everyone bool
-	mentions         []User
-	mention_roles    []Role
+pub struct MessageReference {
+	message_id ?Snowflake
+	channel_id ?Snowflake
+	guild_id   ?Snowflake
+	fail_if_not_exists bool = true
+	typ ?int @[skip, json: type]
 }
 
-@[params]
-pub struct MessageOptions {
-	content string
-	// embeds
-}
 
 // Defines the type of message that was sent
 pub enum MessageType {

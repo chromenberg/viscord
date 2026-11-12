@@ -31,8 +31,8 @@ pub struct GatewayURLReq {
 	url string @[required]
 }
 
-fn get_socket_url() ?string {
-	data := rest.get[GatewayURLReq]('/gateway') or {
+fn get_socket_url(c &Client) ?string {
+	data := c.rest.get[GatewayURLReq]('/gateway') or {
 		eprintln('No data was recieved from gateway url endpoint')
 		return none
 	}
@@ -74,10 +74,10 @@ fn (mut self Gateway) identify() {
 }
 
 pub fn (mut self Gateway) connect(c &Client) ! {
-	url := get_socket_url() or {
+	self.c = c
+	url := get_socket_url(c) or {
 		panic('No gateway URL was recieved')
 	}
-	self.c = c
 	self.sock = websocket.new_client(url)!
 	self.sock.connect()!
 	self.sock.on_message(self.message_handler)
