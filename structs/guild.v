@@ -6,7 +6,15 @@ pub struct APIUnavailableGuild {
 }
 
 pub struct APIGuild {
-
+pub:
+	id Snowflake
+	owner_id Snowflake
+	owner User
+	members []Member // this should not store the full info, only the methods needed to get the info
+pub mut:
+	name string
+	icon string
+	banner string
 }
 
 pub struct Guild {

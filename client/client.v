@@ -44,7 +44,6 @@ pub fn Client.new(opt ClientOpts) &Client {
 
 pub fn (mut c Client) login(token string) ! {
 	c.ws = gt.Gateway.new(token, c.intents)
-
 	c.ws.connect(&c)!
 
 	return
@@ -62,8 +61,3 @@ pub fn (c &Client) on(name events.Events, cb OnFn) {
 		cb(args)
 	})
 }
-
-
-// pub fn (mut c Client) on(event events.Events, cb events.EventFn) {
-// 	events.on_event(event, cb)
-// }

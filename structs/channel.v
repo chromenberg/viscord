@@ -20,3 +20,7 @@ pub mut:
 pub fn (c &Channel) fetch() {
 
 }
+
+pub fn (c &Channel) send(msg MessageOptions) {
+
+}

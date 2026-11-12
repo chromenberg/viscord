@@ -1,8 +1,5 @@
 module rest
 
-import structs {Snowflake}
+import structs { Snowflake }
 
-struct Messages {}
-pub fn Messages.get(id Snowflake) {
-	// get(route)
-}
+pub const channels = '/channels'

@@ -50,7 +50,7 @@ pub fn RawPayload.new(data string) RawPayload {
 
 pub fn (p RawPayload) decode[T]() T {
 	return json2.decode[T](p.strdata) or {
-		panic('Failed to decode payload data for ${p.opcode} | ${p.name}')
+		panic('Failed to decode payload data for ${p.opcode} | ${p.name} ${p.strdata}')
 	}
 }
 

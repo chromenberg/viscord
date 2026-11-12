@@ -99,9 +99,17 @@ pub fn (self &Gateway) send[T](payload SentPayload[T]) ! {
 	self.sock.write_string(payload.encode())
 }
 
+pub fn (mut self Gateway) add_seq(data RawPayload) {
+	if data.seq != 0 {self.seq = data.seq}
+}
 
 pub fn (mut self Gateway) handle_dispatch(c &Client, raw RawPayload) {
 	match raw.opcode {
+		.heartbeat {
+			println("Discord requested heartbeat from client.")
+			self.heart.send_heartbeat(self)
+		}
+
 		.hello {
 			data := Payload.new[messages.Hello](raw)
 			hello_payload := data.data
@@ -119,11 +127,17 @@ pub fn (mut self Gateway) handle_dispatch(c &Client, raw RawPayload) {
 				}
 				.message_create {
 					data := Payload.new[messages.MessageCreate](raw)
-					if data.seq != 0 {self.seq = data.seq}
+					self.add_seq(raw)
 					
 					handlers.message_create(c, data)
 				}
 				.message_delete {}
+				.guild_create {
+					data := Payload.new[messages.GuildCreate](raw)
+					self.add_seq(raw)
+					
+					handlers.guild_create(c, data)
+				}
 			}
 		}
 	}
